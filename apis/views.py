@@ -8,6 +8,9 @@ from rest_framework.permissions import AllowAny , IsAuthenticated
 from rest_framework.status import ( HTTP_400_BAD_REQUEST,
                                     HTTP_404_NOT_FOUND,
                                     HTTP_200_OK)
+import json
+from django.core import serializers
+from django.http import HttpResponse
 from django.db import IntegrityError
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -98,7 +101,7 @@ def teacher_register(request):
         status=HTTP_200_OK)
 
 '''
-endpoint /register/admin creates a user and put it in the "Administrator" group 
+endpoint /register/admin creates a user and put it in the "Administrator" group
 '''
 @csrf_exempt
 @api_view(["POST"])
@@ -171,3 +174,37 @@ def get_tokens_for_user(user):
         'refresh' : str(refresh),
         'access' : str(refresh.access_token),
     }
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes((IsAuthenticated,))
+def get_all_students(request):
+
+    teachers_list = Group.objects.get(name="Teachers").user_set.all()
+    admin_list = Group.objects.get(name="Administrator").user_set.all()
+
+    if request.user in teachers_list or request.user in admin_list:
+        students = list(User.objects.filter(groups__name='Students'))
+        students_json = serializers.serialize('json', students)
+        return HttpResponse(students_json, content_type='application/json')
+
+    else:
+        return Response('You are not authorized to perform this action')
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes((IsAuthenticated,))
+def add_students(request):
+    teachers_list = Group.objects.get(name="Teachers").user_set.all()
+    admin_list = Group.objects.get(name="Administrator").user_set.all()
+
+    if request.user in teachers_list or request.user in admin_list:
+        email = request.data.get("email")
+        try:
+            User.objects.create(username=email, email=email)
+            return Response('Student added successfully')
+        except:
+            return Response('User with this email already exists')
+    else:
+        return Response('You are not authorized to perform this action')
