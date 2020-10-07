@@ -175,7 +175,9 @@ def get_tokens_for_user(user):
         'access' : str(refresh.access_token),
     }
 
-
+'''
+only users registered as admin or teacher can get list of all users in the database
+'''
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes((IsAuthenticated,))
@@ -192,6 +194,9 @@ def get_all_students(request):
     else:
         return Response('You are not authorized to perform this action')
 
+'''
+only users registered as admin or teacher can add students in the database
+'''
 @csrf_exempt
 @api_view(["POST"])
 @permission_classes((IsAuthenticated,))
@@ -201,14 +206,24 @@ def add_students(request):
 
     if request.user in teachers_list or request.user in admin_list:
         email = request.data.get("email")
+        if email is None:
+    	       return Response({'error': "Please provide student's email"},
+                                                                    status=HTTP_400_BAD_REQUEST)
         try:
-            User.objects.create(username=email, email=email)
-            return Response('Student added successfully')
+            student = User.objects.create(username=email, email=email)
         except:
             return Response('User with this email already exists')
+
+        group, created = Group.objects.get_or_create(name='Students')
+        student.groups.add(group)
+        return Response('Student added successfully')
+
     else:
         return Response('You are not authorized to perform this action')
 
+'''
+only students can view their profile
+'''
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes((IsAuthenticated,))
@@ -221,3 +236,61 @@ def view_student_profile(request):
         return Response({'First name': first_name, 'Last name': last_name, 'Email':email})
     else:
         return Response('Only a student can view his/her profile')
+
+
+'''
+admins can get list of all users in the database i.e. Teachers, Students and other Admins
+'''
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes((IsAuthenticated,))
+def list_all_users(request):
+    admin_list = Group.objects.get(name="Administrator").user_set.all()
+
+    if request.user in admin_list:
+        all_users = list(User.objects.all())
+        all_users_json = serializers.serialize('json', all_users)
+        return HttpResponse(all_users_json, content_type='application/json')
+
+    else:
+        return Response('Only an admin can view all users')
+
+
+'''
+admins can add any user to the database i.e. Teachers, Students and other Admins
+'''
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes((IsAuthenticated,))
+def add_user(request):
+    admin_list = Group.objects.get(name="Administrator").user_set.all()
+
+    if request.user in admin_list:
+        email = request.data.get("email")
+        position = request.data.get('position')
+        if email is None or position is None:
+    	       return Response({'error': "Please provide users's email and position"},
+                                                                    status=HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.create(username=email, email=email)
+        except:
+            return Response('User with this email already exists')
+
+        if position=='Student' or position=='student':
+            group, created = Group.objects.get_or_create(name='Students')
+            user.groups.add(group)
+            return Response('Student added successfully')
+        elif position=='Teacher' or position=='teacher':
+            group, created = Group.objects.get_or_create(name='Teachers')
+            user.groups.add(group)
+            return Response('Teacher added successfully')
+        elif position=='Admin' or position=='admin':
+            group, created = Group.objects.get_or_create(name='Administrator')
+            user.groups.add(group)
+            return Response('Admin created successfully')
+        else:
+            u = User.objects.get(username=email)
+            u.delete()
+            return Response('Invalid position. Position can only be: Admin, teacher or student')
+    else:
+        return Response('You are not authorized to perform this action')
