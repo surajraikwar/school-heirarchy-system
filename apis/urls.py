@@ -11,5 +11,6 @@ urlpatterns = [
     path('register/admin', views.admin_register),
     path('login', views.login, name='login'),
     path('students', views.get_all_students),
-    path('add-student', views.add_students)
+    path('add-student', views.add_students),
+    path('student-profile', views.view_student_profile)
 ]

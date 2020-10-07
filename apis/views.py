@@ -208,3 +208,16 @@ def add_students(request):
             return Response('User with this email already exists')
     else:
         return Response('You are not authorized to perform this action')
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes((IsAuthenticated,))
+def view_student_profile(request):
+    if request.user.groups.filter(name = 'Students').exists():
+        first_name=request.user.first_name
+        last_name=request.user.last_name
+        email=request.user.email
+
+        return Response({'First name': first_name, 'Last name': last_name, 'Email':email})
+    else:
+        return Response('Only a student can view his/her profile')
